@@ -190,6 +190,6 @@ def testRbf(data_train,data_test):
     print("the test error rate is: %f" % (float(errorCount_test)/m))
 
 if __name__=='__main__':
-    filename_traindata='C:\\Users\\97090\\OneDrive\\文档\\FDU\\机器学习\\作业\\data\\svm_train_data.txt'
-    filename_testdata='C:\\Users\\97090\\OneDrive\\文档\\FDU\\机器学习\\作业\\data\\svm_test_data.txt'
+    filename_traindata='D:\\9709\\Desktop\\works\\fdu_ML\\data\\svm_train_data.txt'
+    filename_testdata='D:\\9709\\Desktop\\works\\fdu_ML\\data\\svm_test_data.txt'
     testRbf(filename_traindata,filename_testdata)
