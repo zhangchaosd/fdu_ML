@@ -1,14 +1,48 @@
 from numpy import * 
 
-def loadDataSet(filename): #读取数据
-    dataMat=[]
-    labelMat=[]
-    fr=open(filename)
-    for line in fr.readlines():
-        lineArr=line.strip().split(',')
-        dataMat.append([float(lineArr[0]),float(lineArr[1])])
-        labelMat.append(float(lineArr[2]))
-    return dataMat,labelMat #返回数据特征和数据类别
+import struct
+
+DATA_PATH = 'D:/DATASETS/MNIST/'
+
+train_images_idx3_ubyte_file = DATA_PATH + 'train-images.idx3-ubyte'
+train_labels_idx1_ubyte_file = DATA_PATH + 'train-labels.idx1-ubyte'
+
+test_images_idx3_ubyte_file = DATA_PATH + 't10k-images.idx3-ubyte'
+test_labels_idx1_ubyte_file = DATA_PATH + 't10k-labels.idx1-ubyte'
+
+def decode_idx3_ubyte(idx3_ubyte_file):
+    bin_data = open(idx3_ubyte_file, 'rb').read()
+    offset = 0
+    fmt_header = '>iiii'
+    magic_number, num_images, num_rows, num_cols = struct.unpack_from(fmt_header, bin_data, offset)
+    image_size = num_rows * num_cols
+    offset += struct.calcsize(fmt_header)
+    print("offset: ",offset)
+    fmt_image = '>' + str(image_size) + 'B'
+    images = empty((num_images, num_rows*num_cols))
+    for i in range(num_images):
+        images[i] = array(struct.unpack_from(fmt_image, bin_data, offset)).reshape((num_rows*num_cols))
+        offset += struct.calcsize(fmt_image)
+    return images
+
+def decode_idx1_ubyte(idx1_ubyte_file):
+    bin_data = open(idx1_ubyte_file, 'rb').read()
+    offset = 0
+    fmt_header = '>ii'
+    magic_number, num_images = struct.unpack_from(fmt_header, bin_data, offset)
+    offset += struct.calcsize(fmt_header)
+    fmt_image = '>B'
+    labels = empty(num_images)
+    for i in range(num_images):
+        labels[i] = struct.unpack_from(fmt_image, bin_data, offset)[0]
+        offset += struct.calcsize(fmt_image)
+    return labels
+
+def load_images(idx_ubyte_file):
+    return decode_idx3_ubyte(idx_ubyte_file)
+
+def load_labels(idx_ubyte_file):
+    return decode_idx1_ubyte(idx_ubyte_file)
 
 def selectJrand(i,m): #在0-m中随机选择一个不是i的整数
     j=i
@@ -24,8 +58,10 @@ def clipAlpha(aj,H,L):  #保证a在L和H范围内（L <= a <= H）
     return aj
 
 def kernelTrans(X, A, kTup): #核函数，输入参数,X:支持向量的特征树；A：某一行特征数据；kTup：('lin',k1)核函数的类型和参数
-    m,n = shape(X)
-    K = mat(zeros((m,1)))
+    #X (29, 2)
+    #A (1, 2)
+    m,n = shape(X) #29, 2
+    K = mat(zeros((m,1))) #(29, 1)
     if kTup[0]=='lin': #线性函数
         K = X * A.T
     elif kTup[0]=='rbf': # 径向基函数(radial bias function)
@@ -35,6 +71,7 @@ def kernelTrans(X, A, kTup): #核函数，输入参数,X:支持向量的特征�
         K = exp(K/(-1*kTup[1]**2)) #返回生成的结果
     else:
         raise NameError('Houston We Have a Problem -- That Kernel is not recognized')
+    #(29, 1)
     return K
 
 
@@ -154,42 +191,50 @@ def smoP(dataMatIn, classLabels, C, toler, maxIter,kTup=('lin', 0)): #输入参�
         #print("iteration number: %d" % iter)
     return oS.b,oS.alphas
 
-def testRbf(data_train,data_test):
-    dataArr,labelArr = loadDataSet(data_train) #读取训练数据
+if __name__=='__main__':
+    train_images = load_images(train_images_idx3_ubyte_file) #(num_rows*num_cols,num_images)
+    train_labels = load_labels(train_labels_idx1_ubyte_file)
+    train_labels[train_labels != 0] = -1
+    train_labels[train_labels == 0] = 1
 
-    #print(len(dataArr)) #(100,2)
-    #print(len(dataArr[0])) #100
+    dataArr = train_images
+    labelArr = train_labels
 
-    b,alphas = smoP(dataArr, labelArr, 200, 0.0001, 10000, ('rbf', 1.3)) #通过SMO算法得到b和alpha
+    #kernel = 'lin'
+    kernel = 'rbf'
+
+    b,alphas = smoP(dataArr, labelArr, 200, 0.0001, 10000, (kernel, 1.3)) #通过SMO算法得到b和alpha
     datMat=mat(dataArr)
     labelMat = mat(labelArr).transpose()
     svInd=nonzero(alphas)[0]  #选取不为0数据的行数（也就是支持向量）
     sVs=datMat[svInd] #支持向量的特征数据
     labelSV = labelMat[svInd] #支持向量的类别（1或-1）
     print("there are %d Support Vectors" % shape(sVs)[0]) #打印出共有多少的支持向量
-    m,n = shape(datMat) #训练数据的行列数
+    m,n = shape(datMat)
     errorCount = 0
     for i in range(m):
-        kernelEval = kernelTrans(sVs,datMat[i,:],('rbf', 1.3)) #将支持向量转化为核函数
-        predict=kernelEval.T * multiply(labelSV,alphas[svInd]) + b  #这一行的预测结果（代码来源于《统计学习方法》p133里面最后用于预测的公式）注意最后确定的分离平面只有那些支持向量决定。
-        if sign(predict)!=sign(labelArr[i]): #sign函数 -1 if x < 0, 0 if x==0, 1 if x > 0
+        kernelEval = kernelTrans(sVs,datMat[i,:],(kernel, 1.3))
+        predict=kernelEval.T * multiply(labelSV,alphas[svInd]) + b
+        if sign(predict)!=sign(labelArr[i]):
             errorCount += 1
-    print("the training error rate is: %f" % (float(errorCount)/m)) #打印出错误率
+    print("the training error rate is: %f" % (float(errorCount)/m))
+
+    test_images = load_images(test_images_idx3_ubyte_file)
+    test_labels = load_labels(test_labels_idx1_ubyte_file)
+    test_labels[test_labels != 0] = -1
+    test_labels[test_labels == 0] = 1
+
+    dataArr_test = test_images
+    labelArr_test = test_labels
 
 
-    dataArr_test,labelArr_test = loadDataSet(data_test) #读取测试数据
     errorCount_test = 0
-    datMat_test=mat(dataArr_test)
-    labelMat = mat(labelArr_test).transpose()
-    m,n = shape(datMat_test)
-    for i in range(m): #在测试数据上检验错误率
-        kernelEval = kernelTrans(sVs,datMat_test[i,:],('rbf', 1.3))
+    datMat_test=mat(dataArr_test) #(100.2)
+    labelMat = mat(labelArr_test).transpose() #(100,1)
+    m,n = shape(datMat_test) #100, 2
+    for i in range(m):
+        kernelEval = kernelTrans(sVs,datMat_test[i,:],('rbf', 1.3)) #(29, 1)
         predict=kernelEval.T * multiply(labelSV,alphas[svInd]) + b
         if sign(predict)!=sign(labelArr_test[i]):
             errorCount_test += 1
     print("the test error rate is: %f" % (float(errorCount_test)/m))
-
-if __name__=='__main__':
-    filename_traindata='D:\\9709\\Desktop\\works\\fdu_ML\\data\\svm_train_data.txt'
-    filename_testdata='D:\\9709\\Desktop\\works\\fdu_ML\\data\\svm_test_data.txt'
-    testRbf(filename_traindata,filename_testdata)
