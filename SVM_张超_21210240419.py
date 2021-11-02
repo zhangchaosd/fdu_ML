@@ -1,9 +1,6 @@
 import struct
 import numpy as np
 from sklearn import svm
-import sklearn
-import matplotlib.pyplot as plt
-import matplotlib
 
 DATA_PATH = 'D:/DATASETS/MNIST/'
 
