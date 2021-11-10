@@ -99,7 +99,7 @@ def fc_sigmod_backward(dout, cache):
     dx, dw, db = fc_backward(da, fc_cache)
     return dx, dw, db
 
-def softmax_loss(x, y):
+def softmax_crossentropyloss(x, y):
     loss, dx = None, None
 
     N = x.shape[0]
@@ -112,7 +112,20 @@ def softmax_loss(x, y):
     dx = np.exp(shifted_x) / Z
     dx[range(N),y] -= 1
     dx /= N
+    return loss, dx
 
+def sigmod_MSEloss(x, y):
+    loss, dx = None, None
+
+    N = x.shape[0]
+    C = x.shape[1]
+    y_onehot = np.zeros((N, C))
+    y_onehot[np.arange(N), y] = 1
+    x = 1. / (1. + np.exp(-x))
+    loss = np.sum(0.5 * (x - y_onehot) * (x - y_onehot))
+    loss /= N
+
+    dx = -(y_onehot - x) * (1 - x) * x
     return loss, dx
 
 class MLPNN():
@@ -137,7 +150,8 @@ class MLPNN():
             return scores
 
         loss, grads = 0, {}
-        loss, dout = softmax_loss(scores, y)
+        loss, dout = softmax_crossentropyloss(scores, y)
+        #loss, dout = sigmod_MSEloss(scores, y)
         dhidden, dw2, grads['b2'] = fc_backward(dout, fc_cache)
         grads['W2'] = dw2
 
@@ -150,7 +164,7 @@ class MLPNN():
         return loss, grads
 
 
-def train(train_images, train_labels, test_images, test_labels, epoch = 100, act = 'sigmod', lr = 0.0001):
+def train(train_images, train_labels, test_images, test_labels, epoch = 100, act = 'sigmod', lr = 0.01):
     model = MLPNN()
     for i in range(epoch):
         loss, grads = model.loss(train_images, train_labels)
