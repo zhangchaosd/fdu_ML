@@ -4,7 +4,8 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 
-DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/天纺标数据/'
+#DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/天纺标数据/'
+DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/天纺标数据/'
 BATCHSIZE = 64
 EPOCH = 100
 
@@ -53,7 +54,7 @@ def mission3():
     train_dataloader = DataLoader(training_data, batch_size = BATCHSIZE, shuffle = True)
     test_dataloader = DataLoader(test_data, batch_size = 1000, shuffle = True) #676
     print('mission 3 start')
-    model = Net3()
+    model = Net3().to(device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr = 0.0000001)
     for i in range(EPOCH):
