@@ -1,5 +1,4 @@
 import torch
-from torch._C import device
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
@@ -17,9 +16,9 @@ class Dataset3(torch.utils.data.dataset.Dataset):
         self.x_test = np.load(dataset_dir + 'x_test_PE.npy').astype(np.float32)
         self.y_test = np.load(dataset_dir + 'y_test_PE.npy').astype(np.float32)
         self.train = train
+        # TODO 数据增强
 
     def __len__(self):
-        
         if self.train:
             return len(self.x_train)
         return len(self.x_test)
@@ -84,7 +83,7 @@ def mission3():
     optimizer = torch.optim.AdamW(model.parameters(), lr = 0.000003)
     #optimizer = torch.optim.SGD(model.parameters(), lr = 0.001)
     lambda1 = lambda epoch:np.sin(epoch) / epoch
-    scheduler = StepLR(optimizer,step_size=5,gamma = 0.8)
+    scheduler = StepLR(optimizer, step_size = 5, gamma = 0.8)
     f = 0.1
     for i in range(EPOCH):
         model.train()
@@ -105,8 +104,8 @@ def mission3():
             MAE = torch.mean(torch.abs(pred[:,0] - y[:,0])).data.cpu().numpy()
             print('EPOCH: ', i, 'test MAE: ', MAE )
             if MAE < f:
-                f*=0.8
-                nam = 'model_weights MAE '+ str(MAE) +'.pth'
+                f *= 0.8
+                nam = 'model_weights MAE ' + str(MAE) + '.pth'
                 torch.save(model.state_dict(), nam)
                 print('update lr, saved model')
                 for param_group in optimizer.param_groups:
