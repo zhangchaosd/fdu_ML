@@ -5,8 +5,8 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import *
 
-#DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/天纺标数据/'
-DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/天纺标数据/'
+DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/天纺标数据/'
+#DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/天纺标数据/'
 BATCHSIZE = 256
 EPOCH = 2000
 
