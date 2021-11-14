@@ -1,4 +1,6 @@
 ~$*.pptx
 MLpj/布眼数据集.json
 MLpj/__pycache__
+MLpj/fabric_data
+*.pth
 .vs
