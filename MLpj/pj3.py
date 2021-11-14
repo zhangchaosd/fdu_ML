@@ -3,20 +3,37 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import *
+import random
 
 DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/天纺标数据/'
 #DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/天纺标数据/'
 BATCHSIZE = 256
 EPOCH = 250
 
+class AddNoise(object):
+    def __init__(self, p = 0.2, alpha = 0.999):
+        self.p = p
+        self.alpha = alpha
+ 
+    def __call__(self, x):
+        if random.uniform(0, 1) < self.p:
+            rd = torch.randn_like(x) - 0.5
+            rd[rd < 0] = self.alpha - 1
+            rd[rd > 0] = 1 - self.alpha
+            rd = rd * x
+            x += rd
+            return x
+        else:
+            return x
+
 class Dataset3(torch.utils.data.dataset.Dataset):
-    def __init__(self, dataset_dir, train = True):
-        self.x_train = np.load(dataset_dir + 'x_train_PE.npy').astype(np.float32)
-        self.y_train = np.load(dataset_dir + 'y_train_PE.npy').astype(np.float32)
-        self.x_test = np.load(dataset_dir + 'x_test_PE.npy').astype(np.float32)
-        self.y_test = np.load(dataset_dir + 'y_test_PE.npy').astype(np.float32)
+    def __init__(self, dataset_dir, train = True, transform = None):
+        self.x_train = torch.from_numpy(np.load(dataset_dir + 'x_train_PE.npy').astype(np.float32))
+        self.y_train = torch.from_numpy(np.load(dataset_dir + 'y_train_PE.npy').astype(np.float32))
+        self.x_test = torch.from_numpy(np.load(dataset_dir + 'x_test_PE.npy').astype(np.float32))
+        self.y_test = torch.from_numpy(np.load(dataset_dir + 'y_test_PE.npy').astype(np.float32))
         self.train = train
-        # TODO 数据增强
+        self.transform = transform
 
     def __len__(self):
         if self.train:
@@ -25,8 +42,10 @@ class Dataset3(torch.utils.data.dataset.Dataset):
 
     def __getitem__(self, idx):
         if self.train:
-            return torch.from_numpy(self.x_train[idx]), torch.from_numpy(self.y_train[idx])
-        return torch.from_numpy(self.x_test[idx]), torch.from_numpy(self.y_test[idx])
+            if self.transform:
+                return self.transform(self.x_train[idx]), self.y_train[idx]
+            return self.x_train[idx], self.y_train[idx]
+        return self.x_test[idx], self.y_test[idx]
 
 #-----------------------------------------------------------
 class Net32(nn.Module):
@@ -73,7 +92,7 @@ class Net32(nn.Module):
 def mission3():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using {} device".format(device))
-    training_data = Dataset3(DATAPATH, train = True)
+    training_data = Dataset3(DATAPATH, train = True, transform = AddNoise())
     test_data = Dataset3(DATAPATH, train = False)
     train_dataloader = DataLoader(training_data, batch_size = BATCHSIZE, shuffle = True)
     test_dataloader = DataLoader(test_data, batch_size = 1000, shuffle = True) #676
