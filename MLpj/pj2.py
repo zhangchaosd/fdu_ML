@@ -3,6 +3,7 @@ import torch.nn as nn
 import json
 import numpy as np
 from torch.nn.modules import normalization
+from torch.nn.modules.activation import Softmax
 from torch.utils.data import DataLoader
 
 #DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/布眼数据集.json'
@@ -29,11 +30,13 @@ class Dataset2(torch.utils.data.dataset.Dataset):
     def __getitem__(self, idx):
         data = self.trainData[idx] if self.train else self.valData[idx] if self.val else self.testData[idx]
         label = 1 if len(data['l']) == 1 else 0
-        x = [data['h']] + [data['t']] + self.ns(data['w']) + self.ns(data['r']) + self.ns(data['a']) + self.ns(data['i'])
-        # assert len(x) == 228 + 228 + 228 + 228 + 2
+        #x = [data['h']] + [data['t']] + self.ns(data['w']) + self.ns(data['r']) + self.ns(data['a']) + self.ns(data['i'])
+        x = self.ns(data['w']) + self.ns(data['r']) + self.ns(data['a']) + self.ns(data['i'])
+        x2 = data['w'] + data['r'] + data['a'] + data['i']
+        x = self.ns(x)
         oh = [0., 0.]
         oh[label] = 1.
-        return torch.tensor(x), torch.tensor(oh)
+        return torch.tensor(x), torch.tensor(x2), torch.tensor(oh)
 
     def ns(self, data):
         return self.normalization(self.standardization(data)).tolist()
@@ -47,9 +50,10 @@ class Dataset2(torch.utils.data.dataset.Dataset):
         return (data - mu) / sigma
 
 class Net2(nn.Module):
-    def __init__(self, in_feature = 228 + 228 + 228 + 228 + 2, hidden_dim = 2048) -> None:
+    def __init__(self, in_feature = 912*2, hidden_dim = 2048) -> None:
         super().__init__()
         self.fc1 = nn.Sequential(
+            #nn.BatchNorm1d(num_features = in_feature),
             nn.Linear(in_feature, hidden_dim),
             nn.LeakyReLU(0.01)
         )
@@ -88,18 +92,55 @@ class Net2(nn.Module):
         return self.fc7(out6)
 
 
-class Net22(nn.Module):
-    def __init__(self, in_feature = 228 + 228 + 228 + 228 + 2, hidden_dim = 2048) -> None:
+class Net22(nn.Module): #33epoch 8528 512 0.00001
+    def __init__(self, in_feature = 912*2, hidden_dim = 4096) -> None:
         super().__init__()
         self.fc2 = nn.Sequential(
             nn.BatchNorm1d(num_features = in_feature),
-            nn.Linear(in_feature, 2),
+            nn.Linear(in_feature, hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, 2),
             nn.Softmax(dim = 1)
         )
 
     def forward(self, x):
         return self.fc2(x)
 
+class Net23(nn.Module):
+    def __init__(self, in_feature = 912 * 2, hidden_dim = 4096) -> None:
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=11, padding = 5),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=9, padding = 4),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=7, padding = 3),
+            nn.MaxPool1d(kernel_size =2, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=5, padding = 2),
+            nn.MaxPool1d(kernel_size =2, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=3, padding = 1),
+            nn.MaxPool1d(kernel_size =2, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=3, padding = 1),
+            nn.MaxPool1d(kernel_size =2, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=3, padding = 1),
+            nn.MaxPool1d(kernel_size =2, stride=2),
+            nn.LeakyReLU(),
+            nn.Conv1d(in_channels = 1, out_channels=1, kernel_size=1),
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(in_features=57,out_features=2),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, x):
+        x = torch.unsqueeze(input=x,dim=1)
+        out = self.conv(x)
+        out = torch.squeeze(input=out,dim=1)
+        return self.fc(out)
 
 def mission2():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -114,14 +155,16 @@ def mission2():
     val_dataloader = DataLoader(val_data, batch_size = 10, shuffle = True)
     # test_dataloader = DataLoader(test_data, batch_size = 1000, shuffle = True)
 
-    model = Net22().to(device)
+    model = Net23().to(device)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr = 0.000001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr = 0.00003)
     for i in range(EPOCH):
         model.train()
-        for batch, (X, y) in enumerate(train_dataloader):
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
+        for batch, (x, x2, y) in enumerate(train_dataloader):
+            nn.functional.normalize(x2, p=2.0, dim=0, eps=1e-12, out=None)
+            x = torch.cat([x, x2], dim = 1)
+            x, y = x.to(device), y.to(device)
+            pred = model(x)
             loss = loss_fn(pred, y)
             optimizer.zero_grad()
             loss.backward()
@@ -131,16 +174,30 @@ def mission2():
         model.eval()
         total = len(val_data)
         correct = 0
-        for batch, (X, y) in enumerate(val_dataloader):
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
+        Ctotal = 0
+        CXtotal = 0
+        C = 0
+        CX = 0
+        for batch, (x, x2, y) in enumerate(val_dataloader):
+            nn.functional.normalize(x2, p=2.0, dim=0, eps=1e-12, out=None)
+            x = torch.cat([x, x2], dim = 1)
+            x, y = x.to(device), y.to(device)
+            pred = model(x)
             labs = torch.argmax(pred, dim = 1)
             gt = torch.argmax(y, dim = 1)
-            for j in range(X.shape[0]):
+            for j in range(x.shape[0]):
                 if labs[j] == gt[j]:
                     correct += 1
+                    if gt[j] == 1:
+                        C += 1
+                    else:
+                        CX += 1
+                if gt[j] == 1:
+                    Ctotal += 1
+                else:
+                    CXtotal += 1
         acc = correct / total
-        print('EPOCH: ', i, correct, total)
+        print('EPOCH: ', i,'total: ', correct, total, 'C: ', C, Ctotal,'CX: ', CX, CXtotal)
         if i % 20 == 0:
                 print('update lr, saved model')
                 for param_group in optimizer.param_groups:
