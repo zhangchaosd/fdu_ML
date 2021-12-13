@@ -4,3 +4,4 @@ MLpj/__pycache__
 MLpj/fabric_data
 *.pth
 .vs
+data_fixed.npy
