@@ -5,3 +5,4 @@ MLpj/fabric_data
 *.pth
 .vs
 data_fixed.npy
+logs/
