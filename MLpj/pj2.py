@@ -39,12 +39,35 @@ class Dataset2(torch.utils.data.dataset.Dataset):
         oh[label] = 1.
         return x, torch.tensor(oh)
 
+'''
+fc 1824 4096
+bn
+leakyrelu 0.01
+
+fc 4096 4096
+bn
+leakyrelu 0.01
+x3
+
+fc 4096 1024
+bn
+leakyrelu 0.01
+
+fc 1024 128
+bn
+leakyrelu 0.01
+
+fc 128 2
+softmax
+
+'''
+
 class Net2(nn.Module):
     def __init__(self, in_feature = 912 * 2, hidden_dim = 4096) -> None:
         super().__init__()
         self.fc1 = nn.Sequential(
-            nn.BatchNorm1d(num_features = in_feature),
             nn.Linear(in_feature, hidden_dim),
+            nn.BatchNorm1d(num_features = hidden_dim),
             nn.LeakyReLU()
         )
         self.fc2 = nn.Sequential(
