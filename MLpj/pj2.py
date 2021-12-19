@@ -66,6 +66,7 @@ class Net2(nn.Module):
     def __init__(self, in_feature = 912 * 2, hidden_dim = 4096) -> None:
         super().__init__()
         self.fc1 = nn.Sequential(
+            nn.BatchNorm1d(num_features = 1824),
             nn.Linear(in_feature, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
             nn.LeakyReLU()
@@ -103,8 +104,10 @@ class Net2(nn.Module):
     def forward(self, x):
         out1 = self.fc1(x)
         out2 = self.fc2(out1)
-        out3 = self.fc3(out2 + out1)
-        out4 = self.fc4(out3 + out2 + out1)
+        # out3 = self.fc3(out2 + out1)
+        out3 = self.fc3(out2)
+        # out4 = self.fc4(out3 + out2 + out1)
+        out4 = self.fc4(out3)
         out5 = self.fc5(out4)
         out6 = self.fc6(out5)
         return self.fc7(out6)
@@ -174,6 +177,7 @@ def mission2(model, data, batchsize, lr, device, addfactor = 3): #data.shape = 7
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= addfactor
     print('tmax: ', tmax)
+    return tmax
 
 def loadData(datapath = DATAPATH):
     print('Now loading data')
@@ -207,17 +211,39 @@ def loadData(datapath = DATAPATH):
     datal = torch.tensor(datal)
     datar = torch.tensor(datar)
     datar = nn.functional.normalize(datar, p=2.0, dim=0, eps=1e-12, out=None)
-    data = torch.cat((datal, datar, torch.tensor(labels)), dim = 1).numpy()
-
+    data = torch.cat((datal, datar, torch.tensor(labels)), dim = 1)
+    data = data.numpy()
     np.random.shuffle(data)
     np.save(cache_dir, data)
     print('cache saved')
     return torch.tensor(data)
 
-if __name__ == '__main__':
-    data = loadData(DATAPATH)
-    print(data.shape)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    mission2(model = Net2().to(device), data = data, batchsize = 512, device = device, lr = 0.00003, addfactor = 3) # 96.5
+def testdata(datapath = DATAPATH):
+    x = torch.tensor([[1.,8,2],[3,4,6]])
+    print(x)
+    input = torch.randn(3, 11)
+    fc =  nn.BatchNorm1d(num_features = 11)
+    ret = fc(input)
+    print(ret)
 
+if __name__ == '__main__':
+    ret = []
+    for i in range(10):
+        data = loadData(DATAPATH)
+        print(data.shape)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # ret.append(mission2(model = Net2().to(device), data = data, batchsize = 128, device = device, lr = 0.00003, addfactor = 3)) # 96.5
+        ret.append(mission2(model = Net2().to(device), data = data, batchsize = 512, device = device, lr = 0.00003, addfactor = 3)) # 96.5
+    print('final ret:')
+    print(ret)
     exit()
+
+
+'''
+无残差
+[0.97, 0.9718, 0.971, 0.9718, 0.9675, 0.9722, 0.9699, 0.9726, 0.9704, 0.9704]
+[0.9693, 0.969, 0.9698, 0.9717, 0.968, 0.9713, 0.9694, 0.9693, 0.9708, 0.9736]
+
+带残差
+[0.9694, 0.9679, 0.9667, 0.9678, 0.966, 0.9671, 0.9665, 0.9665, 0.9675, 0.9665]
+'''
