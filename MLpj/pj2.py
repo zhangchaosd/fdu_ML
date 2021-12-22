@@ -25,12 +25,12 @@ class Dataset2(torch.utils.data.dataset.Dataset):
         self.valData = []
         if isTrain:
             for id in ids:
-                self.trainData.append(dic[id])
+                self.trainData = self.trainData + dic[id]
         self.isTrain = isTrain
 
     def __len__(self):
         if self.isTrain:
-            return len(self.datas)
+            return len(self.trainData)
         return len(self.ids)
 
     def __getitem__(self, idx):
