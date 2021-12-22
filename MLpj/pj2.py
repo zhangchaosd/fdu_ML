@@ -20,26 +20,22 @@ class Dataset2(torch.utils.data.dataset.Dataset):
     def __init__(self, dic, ids, isTrain = True):
         np.random.shuffle(ids)
         self.dic = dic
-        num_total = len(ids)
-        num_train = int(num_total * 0.9)
-        self.train_ids = ids[:num_train]
-        self.val_ids = ids[num_train:]
-        self.train = []
-        self.val = []
-        for id in self.train_ids:
-            self.train = self.train + dic[id]
-        for id in self.val_ids:
-            self.val = self.val + dic[id]
+        self.ids = ids
+        self.trainData = []
+        self.valData = []
+        if isTrain:
+            for id in ids:
+                self.trainData.append(dic[id])
         self.isTrain = isTrain
 
     def __len__(self):
         if self.isTrain:
-            return len(self.train)
-        return len(self.val_ids)
+            return len(self.datas)
+        return len(self.ids)
 
     def __getitem__(self, idx):
         if self.isTrain:
-            data = self.train[idx]
+            data = self.trainData[idx]
             label = int(data[-1])
             x = data[:-1]
             oh = [0., 0.]
@@ -47,11 +43,14 @@ class Dataset2(torch.utils.data.dataset.Dataset):
             return x, torch.tensor(oh)
         else:
             x = []
-            id = self.val_ids[idx]
-            datas = self.dic[id]
-            for data in datas:
-                x = x + data
-        return x, torch.tensor([0., 0.])
+            id = self.ids[idx]
+            datas2 = self.dic[id]
+            for data in datas2:
+                label = int(data[-1])
+                x = x + data[:-1]
+            oh = [0., 0.]
+            oh[label] = 1.
+        return x, torch.tensor(oh)
 
 '''
 fc 1824 4096
@@ -126,7 +125,7 @@ class Net2(nn.Module):
         out6 = self.fc6(out5)
         return self.fc7(out6)
 
-def mission2(model, data, batchsize, lr, device, addfactor = 3): #data.shape = 70026, 1825
+def mission2(model, data, batchsize, lr, device, addfactor = 3):
     print("Using {} device".format(device))
     print('mission 2 start')
     training_data = Dataset2(data = data, train = True)
@@ -196,8 +195,11 @@ def mission2(model, data, batchsize, lr, device, addfactor = 3): #data.shape = 7
 def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shape = 70026, 1825
     print("Using {} device".format(device))
     print('mission 2 start')
-    training_data = Dataset2(dic = dic,ids = ids, isTrain = True)
-    val_data = Dataset2(dic = dic,ids = ids, isTrain = False)
+    num_total = len(ids)
+    num_train = int(num_total * 0.9)
+
+    training_data = Dataset2(dic = dic, ids = ids[:num_train], isTrain = True)
+    val_data = Dataset2(dic = dic, ids = ids[num_train:], isTrain = False)
     # test_data = Dataset2(data=data, train = False, val = False)
     train_dataloader = DataLoader(training_data, batch_size = batchsize, shuffle = True)
     val_dataloader = DataLoader(val_data, batch_size = 10, shuffle = True) # batchsize
@@ -309,7 +311,9 @@ def loadData2(datapath):
     print(cache_dir)
     if os.path.exists(cache_dir):
         print('use cache')
-        return pickle.load(open(cache_dir,'rb')), np.load(cacheids_dir)
+        ids = np.load(cacheids_dir)
+        np.random.shuffle(ids)
+        return pickle.load(open(cache_dir,'rb')), ids
     print('reading...')
     jsf = json.load(open(datapath))
     data = []
@@ -335,6 +339,7 @@ def loadData2(datapath):
             dic[id] = [data]
             ids.append(id)
     pickle.dump(dic, open(cache_dir, 'wb'))
+    np.random.shuffle(ids)
     np.save(cacheids_dir, ids)
     print('cache saved')
     return dic, ids
