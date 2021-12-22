@@ -7,6 +7,7 @@ from torch.nn.modules.activation import Softmax
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
 import os
+import pickle
 
 #DATAPATH = 'D:/9709/Desktop/works/fdu_ML/MLpj/布眼数据集.json'
 DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/布眼数据集fixed.json'
@@ -303,12 +304,12 @@ def standardization(data):
 
 def loadData2(datapath):
     print('Now loading data')
-    cache_dir = os.getcwd() + '/data2_fixed.npy'
-    cacheids_dir = os.getcwd() + '/data2ids_fixed.npy'
+    cache_dir = os.getcwd() + '/data2_fixed.pickle'
+    cacheids_dir = os.getcwd() + '/data2ids_fixed.pickle'
     print(cache_dir)
     if os.path.exists(cache_dir):
         print('use cache')
-        return np.load(cache_dir), np.load(cacheids_dir)
+        return pickle.load(open(cache_dir,'rb')), np.load(cacheids_dir)
     print('reading...')
     jsf = json.load(open(datapath))
     data = []
@@ -333,7 +334,7 @@ def loadData2(datapath):
         else:
             dic[id] = [data]
             ids.append(id)
-    np.save(cache_dir, dic)
+    pickle.dump(dic, open(cache_dir, 'wb'))
     np.save(cacheids_dir, ids)
     print('cache saved')
     return dic, ids
