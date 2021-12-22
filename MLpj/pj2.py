@@ -46,8 +46,9 @@ class Dataset2(torch.utils.data.dataset.Dataset):
             id = self.ids[idx]
             datas2 = self.dic[id]
             for data in datas2:
+                data = data.numpy()
                 label = int(data[-1])
-                x = x + data[:-1]
+                x = x + (data[:-1].tolist())
             oh = [0., 0.]
             oh[label] = 1.
         return x, torch.tensor(oh)
@@ -222,32 +223,33 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
         # continue
         # val
         model.eval()
-        total = num_total - num_train
+        total = 0
         correct = 0
         Ctotal = 0
         CXtotal = 0
         C = 0
         CX = 0
         for _, (x, y) in enumerate(val_dataloader):
-            x = np.squeeze(x, axis = 0)
-            y = np.squeeze(y, axis = 0)
             ttlen = len(x)
-            num_val = (ttlen / 1368)
+            num_val = int(ttlen / 1368)
+            total += num_val
             val_x = []
             for j in range(num_val):
                 val_x.append(x[j*1368 : j*1368+1368])
+            val_x = torch.tensor(val_x)
+            val_x = val_x.float()
             val_x, y = val_x.to(device), y.to(device)
             pred = model(val_x)
             labs = torch.argmax(pred, dim = 1)
-            gt = 1 if y[1] == 1 else 0
+            gt = 1 if y[0, 1] == 1 else 0
             if gt == 1:
                 correct += torch.sum(labs)
                 Ctotal += 1
             else:
-                correct += ttlen - torch.sum(labs)
+                correct += num_val - torch.sum(labs)
                 CXtotal += 1
             Cl = torch.sum(labs)
-            CXl = ttlen - Cl
+            CXl = num_val - Cl
             if Cl == CXl:
                 predsum = torch.sum(pred, dim = 0)
                 Cscore = predsum[1]
@@ -266,15 +268,16 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
             tmax = acc
         Cacc = C / Ctotal
         CXacc = CX / CXtotal
-        print('EPOCH:', i,'total:', acc, 'C:', round(Cacc, 2), 'CX:', round(CXacc, 2))
-        # if (i + 1) % 7 == 0 or C == 0 or CX == 0:
-        #     print('update lr')
-        #     for param_group in optimizer.param_groups:
-        #         param_group['lr'] *= 0.3
-        # if acc < 0.8 and C != 0 and CX != 0:
-        #     print('add lr')
-        #     for param_group in optimizer.param_groups:
-        #         param_group['lr'] *= addfactor
+        acc2 = (C + CX) / (Ctotal + CXtotal)
+        print('EPOCH:', i,'total:', acc, 'total2', round(acc2, 2), 'C:', round(Cacc, 2), 'CX:', round(CXacc, 2))
+        if (i + 1) % 7 == 0 or C == 0 or CX == 0:
+            print('update lr')
+            for param_group in optimizer.param_groups:
+                param_group['lr'] *= 0.3
+        if acc < 0.8 and C != 0 and CX != 0:
+            print('add lr')
+            for param_group in optimizer.param_groups:
+                param_group['lr'] *= addfactor
     print('tmax: ', tmax)
     return tmax
 
