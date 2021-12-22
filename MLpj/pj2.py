@@ -197,7 +197,7 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
     print("Using {} device".format(device))
     print('mission 2 start')
     training_data = Dataset2(dic = dic,ids = ids, isTrain = True)
-    val_data = Dataset2(dic = dic,ids = ids, isTrain = False, val = True)
+    val_data = Dataset2(dic = dic,ids = ids, isTrain = False)
     # test_data = Dataset2(data=data, train = False, val = False)
     train_dataloader = DataLoader(training_data, batch_size = batchsize, shuffle = True)
     val_dataloader = DataLoader(val_data, batch_size = 10, shuffle = True) # batchsize
@@ -305,7 +305,7 @@ def standardization(data):
 def loadData2(datapath):
     print('Now loading data')
     cache_dir = os.getcwd() + '/data2_fixed.pickle'
-    cacheids_dir = os.getcwd() + '/data2ids_fixed.pickle'
+    cacheids_dir = os.getcwd() + '/data2ids_fixed.pickle.npy'
     print(cache_dir)
     if os.path.exists(cache_dir):
         print('use cache')
