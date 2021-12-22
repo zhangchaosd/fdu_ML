@@ -202,7 +202,7 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
     val_data = Dataset2(dic = dic, ids = ids[num_train:], isTrain = False)
     # test_data = Dataset2(data=data, train = False, val = False)
     train_dataloader = DataLoader(training_data, batch_size = batchsize, shuffle = True)
-    val_dataloader = DataLoader(val_data, batch_size = 10, shuffle = True) # batchsize
+    val_dataloader = DataLoader(val_data, batch_size = 1, shuffle = True) # batchsize
     # test_dataloader = DataLoader(test_data, batch_size = 1000, shuffle = True)
 
     weight = torch.tensor([0.28, 0.72]).to(device) #965
@@ -219,45 +219,62 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
             loss.backward()
             optimizer.step()
         print('loss ', loss.item())
-        continue
+        # continue
         # val
         model.eval()
-        total = len(val_data)
+        total = num_total - num_train
         correct = 0
         Ctotal = 0
         CXtotal = 0
         C = 0
         CX = 0
         for _, (x, y) in enumerate(val_dataloader):
-            x, y = x.to(device), y.to(device)
-            pred = model(x)
+            x = np.squeeze(x, axis = 0)
+            y = np.squeeze(y, axis = 0)
+            ttlen = len(x)
+            num_val = (ttlen / 1368)
+            val_x = []
+            for j in range(num_val):
+                val_x.append(x[j*1368 : j*1368+1368])
+            val_x, y = val_x.to(device), y.to(device)
+            pred = model(val_x)
             labs = torch.argmax(pred, dim = 1)
-            gt = torch.argmax(y, dim = 1)
-            for j in range(x.shape[0]):
-                if labs[j] == gt[j]:
-                    correct += 1
-                    if gt[j] == 1:
-                        C += 1
-                    else:
-                        CX += 1
-                if gt[j] == 1:
-                    Ctotal += 1
-                else:
-                    CXtotal += 1
+            gt = 1 if y[1] == 1 else 0
+            if gt == 1:
+                correct += torch.sum(labs)
+                Ctotal += 1
+            else:
+                correct += ttlen - torch.sum(labs)
+                CXtotal += 1
+            Cl = torch.sum(labs)
+            CXl = ttlen - Cl
+            if Cl == CXl:
+                predsum = torch.sum(pred, dim = 0)
+                Cscore = predsum[1]
+                CXscore = predsum[0]
+                if gt == 1 and Cscore > CXscore:
+                    C += 1
+                if gt == 0 and Cscore < CXscore:
+                    CX += 1
+            else:
+                if gt == 1 and Cl > CXl:
+                    C += 1
+                if gt == 0 and Cl < CXl:
+                    CX += 1
         acc = correct / total
         if acc > tmax:
             tmax = acc
         Cacc = C / Ctotal
         CXacc = CX / CXtotal
         print('EPOCH:', i,'total:', acc, 'C:', round(Cacc, 2), 'CX:', round(CXacc, 2))
-        if (i + 1) % 7 == 0 or C == 0 or CX == 0:
-            print('update lr')
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.3
-        if acc < 0.8 and C != 0 and CX != 0:
-            print('add lr')
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= addfactor
+        # if (i + 1) % 7 == 0 or C == 0 or CX == 0:
+        #     print('update lr')
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] *= 0.3
+        # if acc < 0.8 and C != 0 and CX != 0:
+        #     print('add lr')
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] *= addfactor
     print('tmax: ', tmax)
     return tmax
 
