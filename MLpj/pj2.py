@@ -196,8 +196,8 @@ def mission2(model, data, batchsize, lr, device, addfactor = 3): #data.shape = 7
 def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shape = 70026, 1825
     print("Using {} device".format(device))
     print('mission 2 start')
-    training_data = Dataset2(dic = dic,ids = ids, train = True)
-    val_data = Dataset2(dic = dic,ids = ids, train = False, val = True)
+    training_data = Dataset2(dic = dic,ids = ids, isTrain = True)
+    val_data = Dataset2(dic = dic,ids = ids, isTrain = False, val = True)
     # test_data = Dataset2(data=data, train = False, val = False)
     train_dataloader = DataLoader(training_data, batch_size = batchsize, shuffle = True)
     val_dataloader = DataLoader(val_data, batch_size = 10, shuffle = True) # batchsize
@@ -216,7 +216,7 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-        # print('loss ', loss.item())
+        print('loss ', loss.item())
         continue
         # val
         model.eval()
