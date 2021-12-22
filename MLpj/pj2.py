@@ -63,10 +63,10 @@ softmax
 '''
 
 class Net2(nn.Module):
-    def __init__(self, in_feature = 912 * 2, hidden_dim = 4096) -> None:
+    def __init__(self, in_feature = 912*2, hidden_dim = 4096) -> None:
         super().__init__()
         self.fc1 = nn.Sequential(
-            nn.BatchNorm1d(num_features = 1824),
+            nn.BatchNorm1d(num_features = in_feature),
             nn.Linear(in_feature, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
             nn.LeakyReLU()
@@ -112,7 +112,6 @@ class Net2(nn.Module):
         out6 = self.fc6(out5)
         return self.fc7(out6)
 
-#TODO 交叉验证
 def mission2(model, data, batchsize, lr, device, addfactor = 3): #data.shape = 70026, 1825
     print("Using {} device".format(device))
     print('mission 2 start')
@@ -196,35 +195,26 @@ def loadData(datapath = DATAPATH):
     for re in jsf:
         label = 1 if len(re['l']) == 1 else 0
         labels.append([label])
-        w = torch.tensor(re['w'])
         r = torch.tensor(re['r'])
         a = torch.tensor(re['a'])
         i = torch.tensor(re['i'])
-        wrair = torch.cat((w,r,a,i), dim = 0)
-        datar.append(wrair.numpy())
-        w = nn.functional.normalize(w, p=2.0, dim=0, eps=1e-12, out=None)
+        rair = torch.cat((r,a,i), dim = 0)
+        datar.append(rair.numpy())
         r = nn.functional.normalize(r, p=2.0, dim=0, eps=1e-12, out=None)
         a = nn.functional.normalize(a, p=2.0, dim=0, eps=1e-12, out=None)
         i = nn.functional.normalize(i, p=2.0, dim=0, eps=1e-12, out=None)
-        wrail = torch.cat((w,r,a,i), dim = 0)
-        datal.append(wrail.numpy())
+        rail = torch.cat((r,a,i), dim = 0)
+        datal.append(rail.numpy())
     datal = torch.tensor(datal)
     datar = torch.tensor(datar)
     datar = nn.functional.normalize(datar, p=2.0, dim=0, eps=1e-12, out=None)
     data = torch.cat((datal, datar, torch.tensor(labels)), dim = 1)
+    # data = torch.cat((datal, torch.tensor(labels)), dim = 1)
     data = data.numpy()
     np.random.shuffle(data)
     np.save(cache_dir, data)
     print('cache saved')
     return torch.tensor(data)
-
-def testdata(datapath = DATAPATH):
-    x = torch.tensor([[1.,8,2],[3,4,6]])
-    print(x)
-    input = torch.randn(3, 11)
-    fc =  nn.BatchNorm1d(num_features = 11)
-    ret = fc(input)
-    print(ret)
 
 if __name__ == '__main__':
     ret = []
