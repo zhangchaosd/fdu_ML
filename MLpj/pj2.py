@@ -77,7 +77,7 @@ softmax
 '''
 
 class Net2(nn.Module):
-    def __init__(self, in_feature = 912*2, hidden_dim = 4096) -> None:
+    def __init__(self, in_feature = 1368, hidden_dim = 4096) -> None:
         super().__init__()
         self.fc1 = nn.Sequential(
             nn.BatchNorm1d(num_features = in_feature),
