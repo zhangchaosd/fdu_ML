@@ -14,7 +14,7 @@ DATAPATH = 'C:/Users/97090/Desktop/fdu_ML/MLpj/布眼数据集fixed.json'
 DATAPATH0 = 'C:/Users/97090/Desktop/fdu_ML/MLpj/一条数据.json'
 # 布眼数据集fixed.json: https://drive.google.com/file/d/1SBX_lIny3KfxX2JOaePPnQWNBavSvGs5/view?usp=sharing
 BATCHSIZE = 512
-EPOCH = 70
+EPOCH = 120
 
 class Dataset2(torch.utils.data.dataset.Dataset):
     def __init__(self, dic, ids, isTrain = True):
@@ -83,31 +83,37 @@ class Net2(nn.Module):
             nn.BatchNorm1d(num_features = in_feature),
             nn.Linear(in_feature, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
+            # nn.LayerNorm(normalized_shape=hidden_dim),
             nn.LeakyReLU()
         )
         self.fc2 = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
+            # nn.LayerNorm(normalized_shape=hidden_dim),
             nn.LeakyReLU()
         )
         self.fc3 = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
+            # nn.LayerNorm(normalized_shape=hidden_dim),
             nn.LeakyReLU()
         )
         self.fc4 = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.BatchNorm1d(num_features = hidden_dim),
+            # nn.LayerNorm(normalized_shape=hidden_dim),
             nn.LeakyReLU()
         )
         self.fc5 = nn.Sequential(
             nn.Linear(hidden_dim, 1024),
             nn.BatchNorm1d(num_features = 1024),
+            # nn.LayerNorm(normalized_shape=1024),
             nn.LeakyReLU()
         )
         self.fc6 = nn.Sequential(
             nn.Linear(1024, 128),
             nn.BatchNorm1d(num_features = 128),
+            # nn.LayerNorm(normalized_shape=128),
             nn.LeakyReLU()
         )
         self.fc7 = nn.Sequential(
@@ -123,6 +129,7 @@ class Net2(nn.Module):
         # out4 = self.fc4(out3 + out2 + out1)
         out4 = self.fc4(out3)
         out5 = self.fc5(out4)
+        # out5 = self.fc5(out2)
         out6 = self.fc6(out5)
         return self.fc7(out6)
 
@@ -208,8 +215,13 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
 
     weight = torch.tensor([0.28, 0.72]).to(device) #965
     loss_fn = nn.CrossEntropyLoss(weight = weight)
-    optimizer = torch.optim.AdamW(model.parameters(), lr = lr)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr = lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     tmax = 0
+    trainlosslist = []
+    acclist = []
+    acc2list = []
+    np.set_printoptions(threshold=np.inf)
     for i in range(EPOCH):
         model.train()
         for _, (x, y) in enumerate(train_dataloader):
@@ -220,6 +232,7 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
             loss.backward()
             optimizer.step()
         print('loss ', loss.item())
+        trainlosslist.append(loss.item())
         # continue
         # val
         model.eval()
@@ -264,21 +277,26 @@ def mission25(model, dic, ids, batchsize, lr, device, addfactor = 3): #data.shap
                 if gt == 0 and Cl < CXl:
                     CX += 1
         acc = correct / total
-        if acc > tmax:
-            tmax = acc
         Cacc = C / Ctotal
         CXacc = CX / CXtotal
         acc2 = (C + CX) / (Ctotal + CXtotal)
-        print('EPOCH:', i,'total:', acc, 'total2', round(acc2, 2), 'C:', round(Cacc, 2), 'CX:', round(CXacc, 2))
+        acc = acc.cpu().item()
+        acclist.append(acc)
+        acc2list.append(acc2)
+        if acc2 > tmax:
+            tmax = acc2
+        print('EPOCH:', i,'total:', round(acc, 4), 'total2', round(acc2, 4), 'C:', round(Cacc, 4), 'CX:', round(CXacc, 4))
         if (i + 1) % 7 == 0 or C == 0 or CX == 0:
             print('update lr')
             for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.3
-        if acc < 0.8 and C != 0 and CX != 0:
-            print('add lr')
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= addfactor
+                param_group['lr'] *= 0.5
     print('tmax: ', tmax)
+    print('trainlosslist:')
+    print(trainlosslist)
+    print('acclist:')
+    print(acclist)
+    print('acc2list:')
+    print(acc2list)
     return tmax
 
 def loadData(datapath = DATAPATH):
